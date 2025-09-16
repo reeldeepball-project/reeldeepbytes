@@ -1,7 +1,11 @@
 ../Drivers/CMSIS/Include/core_cm4.h:2064:26:ITM_SendChar	4
-../Core/Src/main.c:76:5:main	5
-../Core/Src/main.c:141:6:SystemClock_Config	3
-../Core/Src/main.c:189:13:MX_USART2_UART_Init	2
-../Core/Src/main.c:222:13:MX_GPIO_Init	1
-../Core/Src/main.c:263:5:__io_putchar	1
-../Core/Src/main.c:274:6:Error_Handler	1
+../Core/Src/main.c:75:6:HAL_TIM_IC_CaptureCallback	1
+../Core/Src/main.c:85:5:main	3
+../Core/Src/main.c:165:6:SystemClock_Config	4
+../Core/Src/main.c:219:6:PeriphCommonClock_Config	2
+../Core/Src/main.c:238:13:MX_TIM1_Init	3
+../Core/Src/main.c:288:13:MX_USART2_UART_Init	2
+../Core/Src/main.c:321:13:MX_GPIO_Init	1
+../Core/Src/main.c:362:5:__io_putchar	1
+../Core/Src/main.c:368:5:CheckState	9
+../Core/Src/main.c:393:6:Error_Handler	1
