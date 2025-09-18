@@ -45,12 +45,6 @@ TIM_HandleTypeDef htim1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-int AChannel=0;
-int BChannel =0;
-int state=1;
-
-int PrevA=0;
-int PrevB=0;
 
 /* USER CODE END PV */
 
@@ -66,16 +60,11 @@ static void MX_TIM1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-//int __io_putchar(int ch)
-//{
-//    HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
-//    return ch;
-//}
-uint32_t counter=0;
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
-	counter=__HAL_TIM_GET_COUNTER(htim);
 
-}
+uint32_t position=0;
+float angle=0.0;
+uint32_t offset = 0;
+
 /* USER CODE END 0 */
 
 /**
@@ -116,7 +105,7 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-  TIM1->CR1 =0x81;
+
 
   /* USER CODE END 2 */
 
@@ -124,32 +113,24 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  volatile uint32_t pos = __HAL_TIM_GET_COUNTER(&htim1);   // reads TIMx->CNT
-
-
-	  AChannel = HAL_GPIO_ReadPin(GPIOC, A_Pin);
-	  BChannel = HAL_GPIO_ReadPin(GPIOC, B_Pin);
-
-	  state=CheckState();
-
-	  counter = TIM1->CNT;
-	  if ((AChannel != PrevA)|| BChannel!=PrevB ){
-
-
-
+	  //this is based on resolution being 512
+	  position = TIM1->CNT;
+	  if (!HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13)){
+		  __HAL_TIM_SET_COUNTER(&htim1,0);
 	  }
 
-	  	  if(AChannel && PrevB){
-	  		 // printf("clockwise\n",pos);
-	  	  }
+	  //position -= offset;
+	  angle = ((position%512)/512.0)*360;
 
-	  	  else if(BChannel && PrevA){
-	  		  //printf("counterclockwise\n");
-	  	  }
 
-		  PrevA=AChannel;
-		  PrevB=BChannel;
-		  //HAL_Delay(500);
+
+
+
+
+
+
+
+
 
     /* USER CODE END WHILE */
 
@@ -365,25 +346,8 @@ int __io_putchar(int ch)
 	return 0;
 }
 
-int CheckState(){
 
 
-	if(AChannel==0 && BChannel==0){
-		return 1;
-	}
-	else if(AChannel==1 && BChannel==0){
-		return 2;
-	}
-	else if(AChannel==1 && BChannel==1){
-		return 3;
-	}
-	else if(AChannel==0 && BChannel==1){
-		return 4;
-	}
-	else{
-		return -1;
-	}
-}
 /* USER CODE END 4 */
 
 /**
