@@ -22,10 +22,17 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <math.h>
+#include "bmi323.h"
+#include "common.h"
+#include "bmi3.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+
+
 
 /* USER CODE END PTD */
 
@@ -43,6 +50,8 @@
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
+I2C_HandleTypeDef hi2c1;
+
 TIM_HandleTypeDef htim1;
 
 UART_HandleTypeDef huart2;
@@ -59,8 +68,11 @@ static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
-
+static int8_t set_accel_gyro_config(struct bmi3_dev *dev);
+static float  lsb_to_g  (int16_t val, float g_range, uint8_t bit_width);
+static float  lsb_to_dps(int16_t val, float dps,     uint8_t bit_width);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -69,6 +81,30 @@ static void MX_ADC1_Init(void);
 uint32_t position=0;
 float angle=0.0;
 uint32_t hall_data =  0;
+
+/* Sensor initialization configuration. */
+ struct bmi3_dev dev = { 0 };
+
+ /* Status of API are returned to this variable. */
+ int8_t rslt;
+
+ /* Variable to define limit to print accel data. */
+ uint16_t limit = 100;
+
+ /* Create an instance of sensor data structure. */
+ struct bmi3_sensor_data sensor_data[3] = { 0 };
+
+ /* Initialize the interrupt status of accel. */
+ uint16_t int_status = 0;
+
+ /* Variable to store temperature */
+ float temperature_value;
+
+ uint8_t indx = 0;
+ float acc_x = 0, acc_y = 0, acc_z = 0;
+ float gyr_x = 0, gyr_y = 0, gyr_z = 0;
+
+
 
 /* USER CODE END 0 */
 
@@ -110,10 +146,35 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM1_Init();
   MX_ADC1_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
   //HAL_ADC_Start(&hadc1);
-  HAL_ADC_Start_DMA(&hadc1, &hall_data, 1);
+  //HAL_ADC_Start_DMA(&hadc1, &hall_data, 1);
+
+
+  //copied code from library Bosch bmi323
+
+
+   /* Function to select interface between SPI and I2C, according to that the device structure gets updated.
+    * Interface reference is given as a parameter
+    * For I2C : BMI3_I2C_INTF
+    * For SPI : BMI3_SPI_INTF
+    */
+  /* Select accel and gyro sensor. */
+   sensor_data[0].type = BMI323_ACCEL;
+   sensor_data[1].type = BMI323_GYRO;
+   sensor_data[2].type = BMI323_TEMP;
+   rslt = bmi3_interface_init(&dev, BMI3_I2C_INTF);
+   bmi3_error_codes_print_result("bmi3_interface_init", rslt);
+
+   /* Initialize bmi323. */
+   rslt = bmi323_init(&dev);
+   bmi3_error_codes_print_result("bmi323_init", rslt);
+
+//end of copied code the rest is in while loop
+
+
 
   /* USER CODE END 2 */
 
@@ -122,13 +183,78 @@ int main(void)
   while (1)
   {
 
-	  position = TIM1->CNT;
+	  position= TIM1->CNT;
+
 	  if (!HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13)){
 		  __HAL_TIM_SET_COUNTER(&htim1,0);
 	  }
 
 
 	  angle = (position/2048.0)*360;
+
+
+      //copied  direct read (no interrupt status check)
+	    if (rslt == BMI323_OK)
+	    {
+	        /* Accel and Gyro configuration settings. */
+	        rslt = set_accel_gyro_config(&dev);
+
+	        if (rslt == BMI323_OK)
+	        {
+	            //printf(
+	            //    "\nData set, Acc_Raw_X, Acc_Raw_Y, Acc_Raw_Z, Acc_G_X, Acc_G_Y, Acc_G_Z,  Gyr_Raw_X, Gyr_Raw_Y, Gyr_Raw_Z, Gyr_dps_X, Gyr_dps_Y, Gyr_dps_Z, Temperature data (Degree celsius), SensorTime(secs)\n\n");
+
+
+	                /* To get the status of accel data ready interrupt. */
+	                rslt = bmi323_get_int1_status(&int_status, &dev);
+	                bmi3_error_codes_print_result("bmi323_get_int1_status", rslt);
+
+	                /* To check the accel data ready interrupt status and print the status for 100 samples. */
+	                if ((int_status & BMI3_INT_STATUS_ACC_DRDY) && (int_status & BMI3_INT_STATUS_GYR_DRDY) &&
+	                    (int_status & BMI3_INT_STATUS_TEMP_DRDY))
+	                {
+	                    /* Get accelerometer data for x, y and z axis. */
+	                    rslt = bmi323_get_sensor_data(sensor_data, 3, &dev);
+	                    bmi3_error_codes_print_result("bmi323_get_sensor_data", rslt);
+
+	                    /* Converting lsb to gravity for 16 bit accelerometer at 2G range. */
+	                    gyr_x = lsb_to_g(sensor_data[0].sens_data.acc.x, 2.0f, dev.resolution);
+	                    gyr_y = lsb_to_g(sensor_data[0].sens_data.acc.y, 2.0f, dev.resolution);
+	                    gyr_z = lsb_to_g(sensor_data[0].sens_data.acc.z, 2.0f, dev.resolution);
+
+	                    /* Converting lsb to degree per second for 16 bit gyro at 2000dps range. */
+	                    acc_x = lsb_to_dps(sensor_data[1].sens_data.gyr.x, (float)2000, dev.resolution);
+	                    acc_y = lsb_to_dps(sensor_data[1].sens_data.gyr.y, (float)2000, dev.resolution);
+	                    acc_z = lsb_to_dps(sensor_data[1].sens_data.gyr.z, (float)2000, dev.resolution);
+
+	                    temperature_value =
+	                        (float)((((float)((int16_t)sensor_data[2].sens_data.temp.temp_data)) / 512.0) + 23.0);
+
+	                    /* Print the accel data in gravity and gyro data in dps. */
+	                    printf("%d, %d, %d, %d, %4.2f, %4.2f, %4.2f, %d, %d, %d, %4.2f, %4.2f, %4.2f, %f, %.4lf\n",
+	                           indx,
+	                           sensor_data[0].sens_data.acc.x,
+	                           sensor_data[0].sens_data.acc.y,
+	                           sensor_data[0].sens_data.acc.z,
+	                           acc_x,
+	                           acc_y,
+	                           acc_z,
+	                           sensor_data[1].sens_data.gyr.x,
+	                           sensor_data[1].sens_data.gyr.y,
+	                           sensor_data[1].sens_data.gyr.z,
+	                           gyr_x,
+	                           gyr_y,
+	                           gyr_z,
+	                           temperature_value,
+	                           (sensor_data[1].sens_data.temp.sens_time * BMI3_SENSORTIME_RESOLUTION));
+
+
+
+	            }
+	        }
+	    }
+
+
 
 
 
@@ -241,7 +367,7 @@ static void MX_ADC1_Init(void)
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV8;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = DISABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
@@ -269,6 +395,40 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
 
 }
 
@@ -416,6 +576,126 @@ int __io_putchar(int ch)
 	ITM_SendChar(ch);
 	return 0;
 }
+//taken from bmi323 lib
+static int8_t set_accel_gyro_config(struct bmi3_dev *dev)
+{
+    /* Status of API are returned to this variable. */
+    int8_t rslt;
+
+    /* Structure to define accelerometer configuration. */
+    struct bmi3_sens_config config[2];
+
+    /* Structure to map interrupt */
+    struct bmi3_map_int map_int = { 0 };
+
+    /* Configure the type of feature. */
+    config[0].type = BMI323_ACCEL;
+    config[1].type = BMI323_GYRO;
+
+    /* Get default configurations for the type of feature selected. */
+    rslt = bmi323_get_sensor_config(config, 2, dev);
+    bmi3_error_codes_print_result("bmi323_get_sensor_config", rslt);
+
+    if (rslt == BMI323_OK)
+    {
+        map_int.acc_drdy_int = BMI3_INT1;
+        map_int.gyr_drdy_int = BMI3_INT1;
+        map_int.temp_drdy_int = BMI3_INT1;
+
+        /* Map data ready interrupt to interrupt pin. */
+        rslt = bmi323_map_interrupt(map_int, dev);
+        bmi3_error_codes_print_result("bmi323_map_interrupt", rslt);
+
+        if (rslt == BMI323_OK)
+        {
+            /* NOTE: The user can change the following configuration parameters according to their requirement. */
+            /* Output Data Rate. By default ODR is set as 100Hz for accel. */
+            config[0].cfg.acc.odr = BMI3_ACC_ODR_50HZ;
+
+            /* Gravity range of the sensor (+/- 2G, 4G, 8G, 16G). */
+            config[0].cfg.acc.range = BMI3_ACC_RANGE_2G;
+
+            /* The Accel bandwidth coefficient defines the 3 dB cutoff frequency in relation to the ODR. */
+            config[0].cfg.acc.bwp = BMI3_ACC_BW_ODR_QUARTER;
+
+            /* Set number of average samples for accel. */
+            config[0].cfg.acc.avg_num = BMI3_ACC_AVG64;
+
+            /* Enable the accel mode where averaging of samples
+             * will be done based on above set bandwidth and ODR.
+             * Note : By default accel is disabled. The accel will get enable by selecting the mode.
+             */
+            config[0].cfg.acc.acc_mode = BMI3_ACC_MODE_NORMAL;
+
+            /* Output Data Rate. By default ODR is set as 100Hz for gyro. */
+            config[1].cfg.gyr.odr = BMI3_GYR_ODR_50HZ;
+
+            /* Gyroscope Angular Rate Measurement Range. By default the range is 2000dps. */
+            config[1].cfg.gyr.range = BMI3_GYR_RANGE_2000DPS;
+
+            /*  The Gyroscope bandwidth coefficient defines the 3 dB cutoff frequency in relation to the ODR
+             *  Value   Name      Description
+             *    0   odr_half   BW = gyr_odr/2
+             *    1  odr_quarter BW = gyr_odr/4
+             */
+            config[1].cfg.gyr.bwp = BMI3_GYR_BW_ODR_HALF;
+
+            /* By default the gyro is disabled. Gyro is enabled by selecting the mode. */
+            config[1].cfg.gyr.gyr_mode = BMI3_GYR_MODE_NORMAL;
+
+            /* Value    Name    Description
+             *  0b000     avg_1   No averaging; pass sample without filtering
+             *  0b001     avg_2   Averaging of 2 samples
+             *  0b010     avg_4   Averaging of 4 samples
+             *  0b011     avg_8   Averaging of 8 samples
+             *  0b100     avg_16  Averaging of 16 samples
+             *  0b101     avg_32  Averaging of 32 samples
+             *  0b110     avg_64  Averaging of 64 samples
+             */
+            config[1].cfg.gyr.avg_num = BMI3_GYR_AVG1;
+
+            /* Set the accel and gyro configurations. */
+            rslt = bmi323_set_sensor_config(config, 2, dev);
+            bmi3_error_codes_print_result("bmi323_set_sensor_config", rslt);
+        }
+    }
+
+    return rslt;
+}
+
+/*! @brief Converts raw sensor values(LSB) to G value
+ *
+ *  @param[in] val        : Raw sensor value.
+ *  @param[in] g_range    : Accel Range selected (4G).
+ *  @param[in] bit_width  : Resolution of the sensor.
+ *
+ *  @return Accel values in Gravity(G)
+ *
+ */
+static float lsb_to_g(int16_t val, float g_range, uint8_t bit_width)
+{
+    double power = 2;
+
+    float half_scale = (float)((pow((double)power, (double)bit_width) / 2.0f));
+
+    return (val * g_range) / half_scale;
+}
+
+/*!
+ * @brief This function converts lsb to degree per second for 16 bit gyro at
+ * range 125, 250, 500, 1000 or 2000dps.
+ */
+static float lsb_to_dps(int16_t val, float dps, uint8_t bit_width)
+{
+    double power = 2;
+
+    float half_scale = (float)((pow((double)power, (double)bit_width) / 2.0f));
+
+    return (dps / (half_scale)) * (val);
+}
+
+
+
 
 
 

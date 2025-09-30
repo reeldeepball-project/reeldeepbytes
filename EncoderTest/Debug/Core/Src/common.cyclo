@@ -1,0 +1,7 @@
+../Core/Src/common.c:41:6:bmi3_error_codes_print_result	16
+../Core/Src/common.c:80:8:bmi3_interface_init	4
+../Core/Src/common.c:117:27:bmi3_i2c_read	3
+../Core/Src/common.c:132:27:bmi3_i2c_write	3
+../Core/Src/common.c:148:27:bmi3_spi_read	1
+../Core/Src/common.c:154:27:bmi3_spi_write	1
+../Core/Src/common.c:161:13:bmi3_delay_us	1
