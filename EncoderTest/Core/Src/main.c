@@ -54,6 +54,7 @@ I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim1;
 
+UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -69,10 +70,13 @@ static void MX_USART2_UART_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_UART4_Init(void);
 /* USER CODE BEGIN PFP */
 static int8_t set_accel_gyro_config(struct bmi3_dev *dev);
 static float  lsb_to_g  (int16_t val, float g_range, uint8_t bit_width);
 static float  lsb_to_dps(int16_t val, float dps,     uint8_t bit_width);
+void check_buffer();
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -81,6 +85,12 @@ static float  lsb_to_dps(int16_t val, float dps,     uint8_t bit_width);
 uint32_t position=0;
 float angle=0.0;
 uint32_t hall_data =  0;
+
+uint8_t rx_buff[1];
+uint8_t nmea[87];
+uint8_t i=0;
+
+
 
 /* Sensor initialization configuration. */
  struct bmi3_dev dev = { 0 };
@@ -147,12 +157,14 @@ int main(void)
   MX_TIM1_Init();
   MX_ADC1_Init();
   MX_I2C1_Init();
+  MX_UART4_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
   //HAL_ADC_Start(&hadc1);
   //HAL_ADC_Start_DMA(&hadc1, &hall_data, 1);
 
 
+  HAL_UART_Receive_IT(&huart4, rx_buff, 1);
   //copied code from library Bosch bmi323
 
 
@@ -182,7 +194,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
+	  /* Infinite loop
 	  position= TIM1->CNT;
 
 	  if (!HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13)){
@@ -196,7 +208,7 @@ int main(void)
       //copied  direct read (no interrupt status check)
 	    if (rslt == BMI323_OK)
 	    {
-	        /* Accel and Gyro configuration settings. */
+	        // Accel and Gyro configuration settings.
 	        rslt = set_accel_gyro_config(&dev);
 
 	        if (rslt == BMI323_OK)
@@ -205,24 +217,24 @@ int main(void)
 	            //    "\nData set, Acc_Raw_X, Acc_Raw_Y, Acc_Raw_Z, Acc_G_X, Acc_G_Y, Acc_G_Z,  Gyr_Raw_X, Gyr_Raw_Y, Gyr_Raw_Z, Gyr_dps_X, Gyr_dps_Y, Gyr_dps_Z, Temperature data (Degree celsius), SensorTime(secs)\n\n");
 
 
-	                /* To get the status of accel data ready interrupt. */
+	                // To get the status of accel data ready interrupt.
 	                rslt = bmi323_get_int1_status(&int_status, &dev);
 	                bmi3_error_codes_print_result("bmi323_get_int1_status", rslt);
 
-	                /* To check the accel data ready interrupt status and print the status for 100 samples. */
+	            // To check the accel data ready interrupt status and print the status for 100 samples.
 	                if ((int_status & BMI3_INT_STATUS_ACC_DRDY) && (int_status & BMI3_INT_STATUS_GYR_DRDY) &&
 	                    (int_status & BMI3_INT_STATUS_TEMP_DRDY))
 	                {
-	                    /* Get accelerometer data for x, y and z axis. */
+	                    //Get accelerometer data for x, y and z axis.
 	                    rslt = bmi323_get_sensor_data(sensor_data, 3, &dev);
 	                    bmi3_error_codes_print_result("bmi323_get_sensor_data", rslt);
 
-	                    /* Converting lsb to gravity for 16 bit accelerometer at 2G range. */
+	                     //Converting lsb to gravity for 16 bit accelerometer at 2G range.
 	                    gyr_x = lsb_to_g(sensor_data[0].sens_data.acc.x, 2.0f, dev.resolution);
 	                    gyr_y = lsb_to_g(sensor_data[0].sens_data.acc.y, 2.0f, dev.resolution);
 	                    gyr_z = lsb_to_g(sensor_data[0].sens_data.acc.z, 2.0f, dev.resolution);
 
-	                    /* Converting lsb to degree per second for 16 bit gyro at 2000dps range. */
+	                   // Converting lsb to degree per second for 16 bit gyro at 2000dps range.
 	                    acc_x = lsb_to_dps(sensor_data[1].sens_data.gyr.x, (float)2000, dev.resolution);
 	                    acc_y = lsb_to_dps(sensor_data[1].sens_data.gyr.y, (float)2000, dev.resolution);
 	                    acc_z = lsb_to_dps(sensor_data[1].sens_data.gyr.z, (float)2000, dev.resolution);
@@ -230,7 +242,7 @@ int main(void)
 	                    temperature_value =
 	                        (float)((((float)((int16_t)sensor_data[2].sens_data.temp.temp_data)) / 512.0) + 23.0);
 
-	                    /* Print the accel data in gravity and gyro data in dps. */
+	                    // Print the accel data in gravity and gyro data in dps.
 	                    printf("%d, %d, %d, %d, %4.2f, %4.2f, %4.2f, %d, %d, %d, %4.2f, %4.2f, %4.2f, %f, %.4lf\n",
 	                           indx,
 	                           sensor_data[0].sens_data.acc.x,
@@ -255,8 +267,11 @@ int main(void)
 	    }
 
 
+  	  	 */
 
 
+
+	  check_buffer();
 
 
 
@@ -367,7 +382,7 @@ static void MX_ADC1_Init(void)
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV8;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV6;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = DISABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
@@ -483,6 +498,39 @@ static void MX_TIM1_Init(void)
 }
 
 /**
+  * @brief UART4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART4_Init(void)
+{
+
+  /* USER CODE BEGIN UART4_Init 0 */
+
+  /* USER CODE END UART4_Init 0 */
+
+  /* USER CODE BEGIN UART4_Init 1 */
+
+  /* USER CODE END UART4_Init 1 */
+  huart4.Instance = UART4;
+  huart4.Init.BaudRate = 4800;
+  huart4.Init.WordLength = UART_WORDLENGTH_8B;
+  huart4.Init.StopBits = UART_STOPBITS_1;
+  huart4.Init.Parity = UART_PARITY_NONE;
+  huart4.Init.Mode = UART_MODE_TX_RX;
+  huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart4.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN UART4_Init 2 */
+
+  /* USER CODE END UART4_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -576,6 +624,24 @@ int __io_putchar(int ch)
 	ITM_SendChar(ch);
 	return 0;
 }
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart->Instance == UART4){
+		nmea[i]=rx_buff[0];
+		i++;
+		HAL_UART_Receive_IT(&huart4, rx_buff, 1);
+	}
+}
+void check_buffer(){
+	if(i==30){
+		i=0;
+	}
+	if(nmea[i-1]==10){
+
+		i=0;
+	}
+}
+
 //taken from bmi323 lib
 static int8_t set_accel_gyro_config(struct bmi3_dev *dev)
 {
