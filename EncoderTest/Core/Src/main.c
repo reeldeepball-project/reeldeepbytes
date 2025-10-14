@@ -26,6 +26,7 @@
 #include "bmi323.h"
 #include "common.h"
 #include "bmi3.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -76,6 +77,7 @@ static int8_t set_accel_gyro_config(struct bmi3_dev *dev);
 static float  lsb_to_g  (int16_t val, float g_range, uint8_t bit_width);
 static float  lsb_to_dps(int16_t val, float dps,     uint8_t bit_width);
 void check_buffer();
+void clear_buff();
 
 /* USER CODE END PFP */
 
@@ -272,6 +274,7 @@ int main(void)
 
 
 	  check_buffer();
+
 
 
 
@@ -633,13 +636,22 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 }
 void check_buffer(){
-	if(i==30){
+	if(nmea[0]!=36){
 		i=0;
 	}
 	if(nmea[i-1]==10){
 
 		i=0;
+		clear_buff();
 	}
+}
+void clear_buff(){
+//	for(int x=86; x>-1;--x){
+//		nmea[x]= '';
+//
+//	}
+	//actually only need this one line
+	memset(&nmea,0,87);
 }
 
 //taken from bmi323 lib
