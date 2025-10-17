@@ -642,6 +642,10 @@ void check_buffer(){
 	if(nmea[i-1]==10){
 
 		i=0;
+		if (nmea[0]!='$'){
+			printf("error");
+		}
+		printf(nmea);
 		clear_buff();
 	}
 }

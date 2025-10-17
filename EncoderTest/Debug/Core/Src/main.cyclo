@@ -11,9 +11,9 @@
 ../Core/Src/main.c:590:13:MX_GPIO_Init	1
 ../Core/Src/main.c:625:5:__io_putchar	1
 ../Core/Src/main.c:630:6:HAL_UART_RxCpltCallback	2
-../Core/Src/main.c:638:6:check_buffer	3
-../Core/Src/main.c:648:6:clear_buff	1
-../Core/Src/main.c:658:15:set_accel_gyro_config	3
-../Core/Src/main.c:753:14:lsb_to_g	1
-../Core/Src/main.c:766:14:lsb_to_dps	1
-../Core/Src/main.c:786:6:Error_Handler	1
+../Core/Src/main.c:638:6:check_buffer	4
+../Core/Src/main.c:652:6:clear_buff	1
+../Core/Src/main.c:662:15:set_accel_gyro_config	3
+../Core/Src/main.c:757:14:lsb_to_g	1
+../Core/Src/main.c:770:14:lsb_to_dps	1
+../Core/Src/main.c:790:6:Error_Handler	1
