@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <stdlib.h>// only for absolute value in calc depth function could remove if we get low on space
 #include <math.h>
 #include "bmi323.h"
 #include "common.h"
@@ -55,7 +56,7 @@ I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
-DMA_HandleTypeDef hdma_tim2_ch1;
+TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart2;
@@ -74,28 +75,60 @@ static void MX_TIM1_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
 static void MX_UART4_Init(void);
+static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 static int8_t set_accel_gyro_config(struct bmi3_dev *dev);
 static float  lsb_to_g  (int16_t val, float g_range, uint8_t bit_width);
 static float  lsb_to_dps(int16_t val, float dps,     uint8_t bit_width);
 void check_buffer();
 void clear_buff();
+static void on_A_rise();
+static void on_A_fall();
+static void on_B_rise();
+static void on_B_fall();
+void calculate_depth();
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+//encoder stuff
 uint32_t position=0;
 float angle=0.0;
 uint32_t hall_data =  0;
 
+//nmea stuff
 uint8_t rx_buff[1];
 uint8_t nmea[87];
 uint8_t i=0;
 
-uint32_t time[2];
+
+//hall effect stuff
+volatile uint8_t HallA = 0;
+volatile uint8_t HallB = 0;
+
+volatile uint32_t magnets_total = 0;
+volatile uint32_t magnets_cw    = 0;
+volatile uint32_t magnets_ccw   = 0;
+volatile int32_t  magnets_net   = 0;// cw - ccw
+
+uint8_t magnets_in_array=4;
+float circumference_inches = 4.0;
+
+float line_out=0.0;
+float depth=0.0;
+
+
+
+typedef enum {
+  IDLE = 0,
+  WAIT_B_AFTER_A=1,
+  WAIT_A_AFTER_B=2
+} state;
+
+static volatile state  Magnet_st= IDLE;
 
 
 /* Sensor initialization configuration. */
@@ -164,7 +197,11 @@ int main(void)
   MX_ADC1_Init();
   MX_I2C1_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
   MX_UART4_Init();
+
+  /* Initialize interrupts */
+  MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
   //HAL_ADC_Start(&hadc1);
@@ -190,8 +227,6 @@ int main(void)
    /* Initialize bmi323. */
    rslt = bmi323_init(&dev);
    bmi3_error_codes_print_result("bmi323_init", rslt);
-   HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_1, time, 2);
-
 
 //end of copied code the rest is in while loop
 
@@ -282,9 +317,11 @@ int main(void)
 
 	  check_buffer();
 
+	  calculate_depth();
 
-
-
+//
+//	  HallA = ((GPIOB->IDR) >> 9) & 1;
+//	  HallB = ((GPIOB->IDR) >> 8) & 1;
 
 
 
@@ -369,6 +406,29 @@ void PeriphCommonClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief NVIC Configuration.
+  * @retval None
+  */
+static void MX_NVIC_Init(void)
+{
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+  /* TIM2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(TIM2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(TIM2_IRQn);
+  /* TIM3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(TIM3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(TIM3_IRQn);
+  /* UART4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(UART4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(UART4_IRQn);
+  /* EXTI9_5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 }
 
 /**
@@ -521,7 +581,6 @@ static void MX_TIM2_Init(void)
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_IC_InitTypeDef sConfigIC = {0};
 
   /* USER CODE BEGIN TIM2_Init 1 */
 
@@ -529,7 +588,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 4294967295;
+  htim2.Init.Period = 37500;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -541,27 +600,60 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_TIM_IC_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_BOTHEDGE;
-  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 0;
-  if (HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 10-1;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 10000-1;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
 
 }
 
@@ -581,11 +673,11 @@ static void MX_UART4_Init(void)
 
   /* USER CODE END UART4_Init 1 */
   huart4.Instance = UART4;
-  huart4.Init.BaudRate = 115200;
+  huart4.Init.BaudRate = 4800;
   huart4.Init.WordLength = UART_WORDLENGTH_8B;
   huart4.Init.StopBits = UART_STOPBITS_1;
   huart4.Init.Parity = UART_PARITY_NONE;
-  huart4.Init.Mode = UART_MODE_TX_RX;
+  huart4.Init.Mode = UART_MODE_RX;
   huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart4.Init.OverSampling = UART_OVERSAMPLING_16;
   if (HAL_UART_Init(&huart4) != HAL_OK)
@@ -639,15 +731,6 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA2_CLK_ENABLE();
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Stream5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
-  /* DMA2_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 
 }
 
@@ -672,6 +755,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
@@ -684,6 +770,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB10 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : Hall2_Pin Hall1_Pin */
+  GPIO_InitStruct.Pin = Hall2_Pin|Hall1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -845,8 +944,94 @@ static float lsb_to_dps(int16_t val, float dps, uint8_t bit_width)
     return (dps / (half_scale)) * (val);
 }
 
+static void on_A_rise()
+{
+  switch (Magnet_st) {
+    case IDLE:
+
+    	Magnet_st = WAIT_B_AFTER_A;
+
+    	break;
+    case WAIT_A_AFTER_B:
+
+      magnets_ccw++;
+      magnets_total++;
+      magnets_net= magnets_cw-magnets_ccw ;
+
+      Magnet_st = IDLE; break;
+    case WAIT_B_AFTER_A:
+    	break;
+  }
+}
+
+static void on_A_fall()
+{
+  if (Magnet_st == WAIT_B_AFTER_A && HallB) {
+
+	  Magnet_st = IDLE;
+  }
+}
+
+static void on_B_rise()
+{
+  switch (Magnet_st) {
+    case IDLE:
+    	Magnet_st = WAIT_A_AFTER_B;
+    	break;
+    case WAIT_B_AFTER_A:
+      magnets_cw++;
+      magnets_total++;
+      magnets_net++;
+      Magnet_st = IDLE;
+      break;
+    case WAIT_A_AFTER_B:
+    	break;
+  }
+}
+
+static void on_B_fall()
+{
+  if (Magnet_st == WAIT_A_AFTER_B && HallA) {
+
+	  Magnet_st = IDLE;
+  }
+}
 
 
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+
+	if( (GPIO_Pin==Hall2_Pin) || (GPIO_Pin==Hall1_Pin) ){
+		HallA = ((GPIOB->IDR) >> 9) & 1;
+		HallB = ((GPIOB->IDR) >> 8) & 1;
+
+
+	}
+	  if (GPIO_Pin == Hall1_Pin) {
+
+	    if (!HallA) {
+	    	on_A_rise();
+	    }
+	    else
+	    	on_A_fall();
+	  }
+	  else if (GPIO_Pin == Hall2_Pin) {
+	    if (!HallB) {
+	    	on_B_rise();
+	    }
+	    else
+	    	on_B_fall();
+	  }
+
+
+}
+void calculate_depth(){
+	magnets_net = magnets_cw - magnets_ccw;// cw - ccw
+	line_out = abs(magnets_net) * circumference_inches/magnets_in_array;
+
+
+
+}
 
 
 
