@@ -116,7 +116,7 @@ volatile uint32_t magnets_cw    = 0;
 volatile uint32_t magnets_ccw   = 0;
 volatile int32_t  magnets_net   = 0;// cw - ccw
 
-uint8_t magnets_in_array=4;
+float magnets_in_array=4.0;
 float circumference_inches = 18.3532; // measured 2.3 inches diameter by calipers
 
 float line_out=0.0;
@@ -231,7 +231,7 @@ int main(void)
    rslt = bmi323_init(&dev);
    bmi3_error_codes_print_result("bmi323_init", rslt);
 
-//end of copied code the rest is in while loop
+//end of copied code the rest is in while loop sd
 
 
 
@@ -325,16 +325,7 @@ int main(void)
 
 	  check_buffer();
 	  check_angle();
-	  calculate_depth();
-
-
-//
-//	  HallA = ((GPIOB->IDR) >> 9) & 1;
-//	  HallB = ((GPIOB->IDR) >> 8) & 1;
-
-
-
-
+	  calculate_depth(); //calculates depth
 
 
 
@@ -438,6 +429,9 @@ static void MX_NVIC_Init(void)
   /* EXTI9_5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+  /* EXTI15_10_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
 /**
@@ -547,7 +541,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 65535;
+  htim1.Init.Period = 2048;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -1005,6 +999,36 @@ static void on_B_fall()
 	  Magnet_st = IDLE;
   }
 }
+void calculate_depth(){
+	magnets_net = magnets_cw - magnets_ccw;
+	line_out = abs(magnets_net) * (circumference_inches/magnets_in_array)*(1.0/12.0);
+
+
+
+	depth_ft = line_out*(cos(angle*0.0174532925));
+
+
+
+}
+void check_angle(){
+	  position= TIM1->CNT;
+
+	  if (!HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13)){
+		  __HAL_TIM_SET_COUNTER(&htim1,0);
+	  }
+
+
+	  angle = (position/2048.0)*360;
+	  //angle = (int)((position/2048.0)*360);
+
+	  if (angle>180){
+		angle = 360-angle;
+
+	  }
+
+}
+
+
 
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -1013,8 +1037,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if( (GPIO_Pin==Hall2_Pin) || (GPIO_Pin==Hall1_Pin) ){
 		HallA = ((GPIOB->IDR) >> 9) & 1;
 		HallB = ((GPIOB->IDR) >> 8) & 1;
-
-
 	}
 	  if (GPIO_Pin == Hall1_Pin) {
 
@@ -1034,34 +1056,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 
 }
-void calculate_depth(){
-	magnets_net = magnets_cw - magnets_ccw;
-	line_out = abs(magnets_net) * circumference_inches/magnets_in_array;
-
-
-
-	depth_ft = line_out*(cos(angle));
-
-
-
-}
-void check_angle(){
-	  position= TIM1->CNT;
-
-	  if (!HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13)){
-		  __HAL_TIM_SET_COUNTER(&htim1,0);
-	  }
-
-
-	  //angle = (position/2048.0)*360;
-	  angle = (int)((position/2048.0)*360);
-
-	  if (angle>180){
-		angle = 360-angle;
-
-	  }
-}
-
 
 
 /* USER CODE END 4 */
