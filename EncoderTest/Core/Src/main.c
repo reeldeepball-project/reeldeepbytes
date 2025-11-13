@@ -231,7 +231,7 @@ int main(void)
    rslt = bmi323_init(&dev);
    bmi3_error_codes_print_result("bmi323_init", rslt);
 
-//end of copied code the rest is in while loop
+//end of copied code the rest is in while loop sd
 
 
 
@@ -325,16 +325,7 @@ int main(void)
 
 	  check_buffer();
 	  check_angle();
-	  calculate_depth();
-
-
-//
-//	  HallA = ((GPIOB->IDR) >> 9) & 1;
-//	  HallB = ((GPIOB->IDR) >> 8) & 1;
-
-
-
-
+	  calculate_depth(); //calculates depth
 
 
 
@@ -1046,8 +1037,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if( (GPIO_Pin==Hall2_Pin) || (GPIO_Pin==Hall1_Pin) ){
 		HallA = ((GPIOB->IDR) >> 9) & 1;
 		HallB = ((GPIOB->IDR) >> 8) & 1;
-
-
 	}
 	  if (GPIO_Pin == Hall1_Pin) {
 
