@@ -89,6 +89,7 @@ static void on_A_fall();
 static void on_B_rise();
 static void on_B_fall();
 void calculate_depth();
+void check_angle();
 
 /* USER CODE END PFP */
 
@@ -97,6 +98,7 @@ void calculate_depth();
 //encoder stuff
 uint32_t position=0;
 float angle=0.0;
+
 uint32_t hall_data =  0;
 
 //nmea stuff
@@ -115,10 +117,11 @@ volatile uint32_t magnets_ccw   = 0;
 volatile int32_t  magnets_net   = 0;// cw - ccw
 
 uint8_t magnets_in_array=4;
-float circumference_inches = 4.0;
+float circumference_inches = 18.3532; // measured 2.3 inches diameter by calipers
 
 float line_out=0.0;
-float depth=0.0;
+float depth_ft=0.0;
+
 
 
 
@@ -247,7 +250,12 @@ int main(void)
 
 
 	  angle = (position/2048.0)*360;
+	  //angle = (int)((position/2048.0)*360);
 
+	  if (angle>180){
+		angle = 360-angle;
+
+	  }
 
       //copied  direct read (no interrupt status check)
 	    if (rslt == BMI323_OK)
@@ -316,8 +324,9 @@ int main(void)
 
 
 	  check_buffer();
-
+	  check_angle();
 	  calculate_depth();
+
 
 //
 //	  HallA = ((GPIOB->IDR) >> 9) & 1;
@@ -1026,11 +1035,31 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 }
 void calculate_depth(){
-	magnets_net = magnets_cw - magnets_ccw;// cw - ccw
+	magnets_net = magnets_cw - magnets_ccw;
 	line_out = abs(magnets_net) * circumference_inches/magnets_in_array;
 
 
 
+	depth_ft = line_out*(cos(angle));
+
+
+
+}
+void check_angle(){
+	  position= TIM1->CNT;
+
+	  if (!HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13)){
+		  __HAL_TIM_SET_COUNTER(&htim1,0);
+	  }
+
+
+	  //angle = (position/2048.0)*360;
+	  angle = (int)((position/2048.0)*360);
+
+	  if (angle>180){
+		angle = 360-angle;
+
+	  }
 }
 
 
