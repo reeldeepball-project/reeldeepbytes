@@ -325,7 +325,7 @@ int main(void)
 
 	  check_buffer();
 	  check_angle();
-	  calculate_depth(); //calculates depths
+	  calculate_depth(); //calculates depth
 
 
 
