@@ -29,6 +29,7 @@ void countTestRDBlcd(){
     ST7565_drawbitmapNew(40, 15, depthDigitArray[i], 36, 58, 1); //middle digit
     ST7565_drawbitmapNew(75, 15, depthDigitArray[i], 36, 58, 1); //right digit
 
+
 	}
 
 }
@@ -49,7 +50,10 @@ void parseDepthVal(int depthValue){
 	ST7565_drawbitmapNew(5,47, depthDigitArray[hundred],  36, 48, 1); //left digit
     ST7565_drawbitmapNew(40, 47, depthDigitArray[tens], 36, 58, 1); //middle digit
     ST7565_drawbitmapNew(75, 47, depthDigitArray[ones], 36, 58, 1); //right digit
-	updateDisplay();
+   //HAL_Delay(100);
+  	ST7565_drawstring_anywhere(0, 7, "DEPTH"); // x=pixel,y=page
+  	ST7565_drawstring_anywhere(115, 0, "ft");  //
+    updateDisplay();
 
 }
 

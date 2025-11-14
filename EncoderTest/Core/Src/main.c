@@ -28,6 +28,7 @@
 #include "common.h"
 #include "bmi3.h"
 #include <string.h>
+
 #include"ST7565.h"
 #include"RDB_depth_digits_36x58.h"
 #include"RDB_Functions.h"
@@ -227,6 +228,7 @@ int main(void)
    /* Initialize bmi323. */
    rslt = bmi323_init(&dev);
    bmi3_error_codes_print_result("bmi323_init", rslt);
+   ST7565_init();
 
 //end of copied code the rest is in while loop sd
 
@@ -323,7 +325,7 @@ int main(void)
 	  check_buffer();
 	  check_angle();
 	  calculate_depth(); //calculates depth
-	  parseDepthVal(1);
+	  parseDepthVal((int)depth_ft);
 
 
 
@@ -481,12 +483,12 @@ static void MX_SPI1_Init(void)
   /* SPI1 parameter configuration*/
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_1LINE;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
   hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
