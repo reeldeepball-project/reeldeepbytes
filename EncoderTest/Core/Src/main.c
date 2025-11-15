@@ -117,11 +117,11 @@ volatile uint32_t magnets_ccw   = 0;
 volatile int32_t  magnets_net   = 0;// cw - ccw
 
 float magnets_in_array=4.0;
-float circumference_inches = 18.3532; // measured 2.3 inches diameter by calipers
+float circumference_inches = 7.22; // measured 2.3 inches diameter by calipers
 
 float line_out=0.0;
 float depth_ft=0.0;
-
+uint8_t Mosfet_state=0;
 
 
 
@@ -326,7 +326,13 @@ int main(void)
 	  check_angle();
 	  calculate_depth(); //calculates depth
 	  parseDepthVal((int)depth_ft);
-
+	  if(((int)depth_ft) > 10){
+		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 1);
+		  Mosfet_state=1;
+	  }else{
+		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
+		  Mosfet_state=0;
+	  }
 
 
     /* USER CODE END WHILE */
@@ -951,8 +957,10 @@ void calculate_depth(){
 	line_out = abs(magnets_net) * (circumference_inches/magnets_in_array)*(1.0/12.0);
 
 
+	if((angle < 90.001)){
+		depth_ft = line_out*(cos(angle*0.0174532925));
+	}
 
-	depth_ft = line_out*(cos(angle*0.0174532925));
 
 
 
@@ -960,7 +968,7 @@ void calculate_depth(){
 void check_angle(){
 	  position= TIM1->CNT;
 
-	  if (!HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13)){
+	  if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_10)){
 		  __HAL_TIM_SET_COUNTER(&htim1,0);
 	  }
 
