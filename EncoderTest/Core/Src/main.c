@@ -103,7 +103,7 @@ uint32_t hall_data =  0;
 
 //nmea stuff
 uint8_t rx_buff[1];
-uint8_t nmea[87];
+unsigned char nmea[87];
 uint8_t i=0;
 
 
@@ -773,12 +773,15 @@ void check_buffer(){
 		if (nmea[0]!='$'){
 			printf("error");
 		}
+
+		printf(nmea);
 		if(nmea[3]=='D' && nmea[4]=='B' && nmea[5]=='T'){
 			token = strtok(nmea, delim);
 			token = strtok(NULL, delim);
 			nmea_depth_ft=atoi(token);
 		}
-		printf(nmea);
+
+
 		clear_buff();
 	}
 }

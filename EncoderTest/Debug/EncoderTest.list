@@ -35,17 +35,17 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  15 .debug_macro  000266fb  00000000  00000000  00034040  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_line   0001df12  00000000  00000000  0005a73b  2**0
+ 16 .debug_line   0001df14  00000000  00000000  0005a73b  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_str    000e35e6  00000000  00000000  0007864d  2**0
+ 17 .debug_str    000e35e6  00000000  00000000  0007864f  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .comment      00000043  00000000  00000000  0015bc33  2**0
+ 18 .comment      00000043  00000000  00000000  0015bc35  2**0
                   CONTENTS, READONLY
- 19 .debug_rnglists 000014c9  00000000  00000000  0015bc76  2**0
+ 19 .debug_rnglists 000014c9  00000000  00000000  0015bc78  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 20 .debug_frame  0000847c  00000000  00000000  0015d140  2**2
+ 20 .debug_frame  0000847c  00000000  00000000  0015d144  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 0000004f  00000000  00000000  001655bc  2**0
+ 21 .debug_line_str 0000004f  00000000  00000000  001655c0  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -10487,41 +10487,44 @@ void check_buffer(){
  8004aec:	4816      	ldr	r0, [pc, #88]	@ (8004b48 <check_buffer+0x90>)
  8004aee:	f006 f81b 	bl	800ab28 <iprintf>
 		}
-		if(nmea[3]=='D' && nmea[4]=='B' && nmea[5]=='T'){
- 8004af2:	4b13      	ldr	r3, [pc, #76]	@ (8004b40 <check_buffer+0x88>)
- 8004af4:	78db      	ldrb	r3, [r3, #3]
- 8004af6:	2b44      	cmp	r3, #68	@ 0x44
- 8004af8:	d119      	bne.n	8004b2e <check_buffer+0x76>
- 8004afa:	4b11      	ldr	r3, [pc, #68]	@ (8004b40 <check_buffer+0x88>)
- 8004afc:	791b      	ldrb	r3, [r3, #4]
- 8004afe:	2b42      	cmp	r3, #66	@ 0x42
- 8004b00:	d115      	bne.n	8004b2e <check_buffer+0x76>
- 8004b02:	4b0f      	ldr	r3, [pc, #60]	@ (8004b40 <check_buffer+0x88>)
- 8004b04:	795b      	ldrb	r3, [r3, #5]
- 8004b06:	2b54      	cmp	r3, #84	@ 0x54
- 8004b08:	d111      	bne.n	8004b2e <check_buffer+0x76>
-			token = strtok(nmea, delim);
- 8004b0a:	463b      	mov	r3, r7
- 8004b0c:	4619      	mov	r1, r3
- 8004b0e:	480c      	ldr	r0, [pc, #48]	@ (8004b40 <check_buffer+0x88>)
- 8004b10:	f006 f868 	bl	800abe4 <strtok>
- 8004b14:	6078      	str	r0, [r7, #4]
-			token = strtok(NULL, delim);
- 8004b16:	463b      	mov	r3, r7
- 8004b18:	4619      	mov	r1, r3
- 8004b1a:	2000      	movs	r0, #0
- 8004b1c:	f006 f862 	bl	800abe4 <strtok>
- 8004b20:	6078      	str	r0, [r7, #4]
-			nmea_depth_ft=atoi(token);
- 8004b22:	6878      	ldr	r0, [r7, #4]
- 8004b24:	f005 fa60 	bl	8009fe8 <atoi>
- 8004b28:	4603      	mov	r3, r0
- 8004b2a:	4a08      	ldr	r2, [pc, #32]	@ (8004b4c <check_buffer+0x94>)
- 8004b2c:	6013      	str	r3, [r2, #0]
-		}
+
 		printf(nmea);
- 8004b2e:	4804      	ldr	r0, [pc, #16]	@ (8004b40 <check_buffer+0x88>)
- 8004b30:	f005 fffa 	bl	800ab28 <iprintf>
+ 8004af2:	4813      	ldr	r0, [pc, #76]	@ (8004b40 <check_buffer+0x88>)
+ 8004af4:	f006 f818 	bl	800ab28 <iprintf>
+		if(nmea[3]=='D' && nmea[4]=='B' && nmea[5]=='T'){
+ 8004af8:	4b11      	ldr	r3, [pc, #68]	@ (8004b40 <check_buffer+0x88>)
+ 8004afa:	78db      	ldrb	r3, [r3, #3]
+ 8004afc:	2b44      	cmp	r3, #68	@ 0x44
+ 8004afe:	d119      	bne.n	8004b34 <check_buffer+0x7c>
+ 8004b00:	4b0f      	ldr	r3, [pc, #60]	@ (8004b40 <check_buffer+0x88>)
+ 8004b02:	791b      	ldrb	r3, [r3, #4]
+ 8004b04:	2b42      	cmp	r3, #66	@ 0x42
+ 8004b06:	d115      	bne.n	8004b34 <check_buffer+0x7c>
+ 8004b08:	4b0d      	ldr	r3, [pc, #52]	@ (8004b40 <check_buffer+0x88>)
+ 8004b0a:	795b      	ldrb	r3, [r3, #5]
+ 8004b0c:	2b54      	cmp	r3, #84	@ 0x54
+ 8004b0e:	d111      	bne.n	8004b34 <check_buffer+0x7c>
+			token = strtok(nmea, delim);
+ 8004b10:	463b      	mov	r3, r7
+ 8004b12:	4619      	mov	r1, r3
+ 8004b14:	480a      	ldr	r0, [pc, #40]	@ (8004b40 <check_buffer+0x88>)
+ 8004b16:	f006 f865 	bl	800abe4 <strtok>
+ 8004b1a:	6078      	str	r0, [r7, #4]
+			token = strtok(NULL, delim);
+ 8004b1c:	463b      	mov	r3, r7
+ 8004b1e:	4619      	mov	r1, r3
+ 8004b20:	2000      	movs	r0, #0
+ 8004b22:	f006 f85f 	bl	800abe4 <strtok>
+ 8004b26:	6078      	str	r0, [r7, #4]
+			nmea_depth_ft=atoi(token);
+ 8004b28:	6878      	ldr	r0, [r7, #4]
+ 8004b2a:	f005 fa5d 	bl	8009fe8 <atoi>
+ 8004b2e:	4603      	mov	r3, r0
+ 8004b30:	4a06      	ldr	r2, [pc, #24]	@ (8004b4c <check_buffer+0x94>)
+ 8004b32:	6013      	str	r3, [r2, #0]
+		}
+
+
 		clear_buff();
  8004b34:	f000 f80c 	bl	8004b50 <clear_buff>
 	}
