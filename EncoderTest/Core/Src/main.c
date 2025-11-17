@@ -108,8 +108,8 @@ uint8_t i=0;
 
 
 //hall effect stuff
-volatile uint8_t HallA = 0;
-volatile uint8_t HallB = 0;
+volatile uint8_t HallA = 1;
+volatile uint8_t HallB = 1;
 
 volatile uint32_t magnets_total = 0;
 volatile uint32_t magnets_cw    = 0;
@@ -122,6 +122,8 @@ float circumference_inches = 7.22; // measured 2.3 inches diameter by calipers
 float line_out=0.0;
 float depth_ft=0.0;
 uint8_t Mosfet_state=0;
+
+int nmea_depth_ft;
 
 
 
@@ -326,7 +328,7 @@ int main(void)
 	  check_angle();
 	  calculate_depth(); //calculates depth
 	  parseDepthVal((int)depth_ft);
-	  if(((int)depth_ft) > 10){
+	  if(((int)depth_ft) > nmea_depth_ft){
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 1);
 		  Mosfet_state=1;
 	  }else{
@@ -760,6 +762,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 }
 void check_buffer(){
+	const char delim[] = ",";
+	char *token;
 	if(nmea[0]!=36){
 		i=0;
 	}
@@ -768,6 +772,11 @@ void check_buffer(){
 		i=0;
 		if (nmea[0]!='$'){
 			printf("error");
+		}
+		if(nmea[3]=='D' && nmea[4]=='B' && nmea[5]=='T'){
+			token = strtok(nmea, delim);
+			token = strtok(NULL, delim);
+			nmea_depth_ft=atoi(token);
 		}
 		printf(nmea);
 		clear_buff();
