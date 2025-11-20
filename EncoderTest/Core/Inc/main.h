@@ -68,6 +68,8 @@ void Error_Handler(void);
 #define A0_GPIO_Port GPIOA
 #define USART_RX_Pin GPIO_PIN_3
 #define USART_RX_GPIO_Port GPIOA
+#define Button_Reset_Pin GPIO_PIN_10
+#define Button_Reset_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
