@@ -90,6 +90,7 @@ static void on_B_rise();
 static void on_B_fall();
 void calculate_depth();
 void check_angle();
+void compare_depths();
 
 /* USER CODE END PFP */
 
@@ -121,7 +122,7 @@ float circumference_inches = 7.22; // measured 2.3 inches diameter by calipers
 
 float line_out=0.0;
 float depth_ft=0.0;
-uint8_t Mosfet_state=0;
+uint8_t nmea_on=0;
 
 int nmea_depth_ft;
 
@@ -328,12 +329,9 @@ int main(void)
 	  check_angle();
 	  calculate_depth(); //calculates depth
 	  parseDepthVal((int)depth_ft);
-	  if(((int)depth_ft) > nmea_depth_ft){
-		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 1);
-		  Mosfet_state=1;
-	  }else{
-		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
-		  Mosfet_state=0;
+
+	  if(nmea_on==1){
+		  compare_depths(); // this is only function that controls motor comment it out when necessary
 	  }
 
 
@@ -434,6 +432,9 @@ static void MX_NVIC_Init(void)
   /* EXTI9_5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+  /* EXTI15_10_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 }
 
 /**
@@ -739,15 +740,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(Button_Reset_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : Calibrate_button_Pin */
+  GPIO_InitStruct.Pin = Calibrate_button_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(Calibrate_button_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pins : Hall2_Pin Hall1_Pin */
   GPIO_InitStruct.Pin = Hall2_Pin|Hall1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -987,9 +990,10 @@ void calculate_depth(){
 void check_angle(){
 	  position= TIM1->CNT;
 
-	  if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_10)){
-		  __HAL_TIM_SET_COUNTER(&htim1,0);
-	  }
+	  //this is done in ext callback on button press
+//	  if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_10)){
+//		  __HAL_TIM_SET_COUNTER(&htim1,0);
+//	  }
 
 
 	  angle = (position/1024.0)*360;
@@ -1001,6 +1005,17 @@ void check_angle(){
 	  }
 
 }
+void compare_depths(){
+	if(((int)depth_ft) > nmea_depth_ft){
+		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 1);
+
+	}else{
+		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
+
+	}
+
+}
+
 
 
 
@@ -1026,6 +1041,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	    }
 	    else
 	    	on_B_fall();
+	  }
+	  if(GPIO_Pin == Calibrate_button_Pin){
+		  __HAL_TIM_SET_COUNTER(&htim1,0); //reset angle
 	  }
 
 
