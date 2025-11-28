@@ -327,7 +327,7 @@ int main(void)
 
 	  check_buffer();
 	  check_angle();
-	  calculate_depth(); //calculates depth
+	  calculate_depth(); //calculates depthh
 	  parseDepthVal((int)depth_ft);
 
 	  if(nmea_on==1){
