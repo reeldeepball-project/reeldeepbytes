@@ -91,6 +91,7 @@ static void on_B_fall();
 void calculate_depth();
 void check_angle();
 void compare_depths();
+void reset_depth();
 
 /* USER CODE END PFP */
 
@@ -333,6 +334,15 @@ int main(void)
 	  if(nmea_on==1){
 		  compare_depths(); // this is only function that controls motor comment it out when necessary
 	  }
+	  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_11)){
+		  reset_depth();
+	  }
+	  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)){
+		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
+	  }else{
+		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
+	  }
+
 
 
     /* USER CODE END WHILE */
@@ -1013,6 +1023,11 @@ void compare_depths(){
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
 
 	}
+
+}
+void reset_depth(){
+	magnets_ccw=0;
+	magnets_cw=0;
 
 }
 
