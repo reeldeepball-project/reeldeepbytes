@@ -124,11 +124,12 @@ float circumference_inches = 7.22; // measured 2.3 inches diameter by calipers
 float line_out=0.0;
 float depth_ft=0.0;
 uint8_t nmea_on=0;
+uint8_t motor_on=0;
 
-int nmea_depth_ft;
+int nmea_depth_ft=50;
 
-
-
+uint32_t last_button=0;
+uint8_t debounce=250;
 typedef enum {
   IDLE = 0,
   WAIT_B_AFTER_A=1,
@@ -329,7 +330,7 @@ int main(void)
 	  check_buffer();
 	  check_angle();
 	  calculate_depth(); //calculates depth
-	  parseDepthVal((int)depth_ft);
+	  parseDepthVal((int)(round(depth_ft)));
 
 	  if(nmea_on==1){
 		  compare_depths(); // this is only function that controls motor comment it out when necessary
@@ -337,11 +338,11 @@ int main(void)
 	  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_11)){
 		  reset_depth();
 	  }
-	  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)){
-		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
-	  }else{
-		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
-	  }
+//	  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)){
+//		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
+//	  }else{
+//		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+//	  }
 
 
 
@@ -751,17 +752,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : Calibrate_button_Pin */
-  GPIO_InitStruct.Pin = Calibrate_button_Pin;
+  /*Configure GPIO pins : Calibrate_button_Pin Button3_Pin */
+  GPIO_InitStruct.Pin = Calibrate_button_Pin|Button3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(Calibrate_button_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Button2_Pin Button3_Pin */
-  GPIO_InitStruct.Pin = Button2_Pin|Button3_Pin;
+  /*Configure GPIO pin : Button2_Pin */
+  GPIO_InitStruct.Pin = Button2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(Button2_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : Hall2_Pin Hall1_Pin */
   GPIO_InitStruct.Pin = Hall2_Pin|Hall1_Pin;
@@ -1027,11 +1028,20 @@ void check_angle(){
 
 }
 void compare_depths(){
+	if((int)depth_ft<20){
+		return;
+	}
 	if(((int)depth_ft) > nmea_depth_ft){
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 1);
+		  motor_on=1;
+		  return;
 
+	}else if(motor_on && ((int)depth_ft) > nmea_depth_ft + 5){
+		return;
 	}else{
 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
+		  motor_on=0;
+		  return;
 
 	}
 
@@ -1070,6 +1080,25 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	  }
 	  if(GPIO_Pin == Calibrate_button_Pin){
 		  __HAL_TIM_SET_COUNTER(&htim1,0); //reset angle
+	  }
+
+	  if(GPIO_Pin == Button3_Pin){
+		  uint32_t now=HAL_GetTick();
+		  if((now-last_button)>debounce){
+			  if(nmea_on==0){
+				  nmea_on=1;
+				  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
+				  //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_1);
+
+			  }
+			  else{
+				  nmea_on=0;
+				  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+			  }
+			  last_button=now;
+
+		  }
+
 	  }
 
 
