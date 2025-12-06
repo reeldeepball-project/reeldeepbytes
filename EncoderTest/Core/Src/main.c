@@ -92,6 +92,7 @@ void calculate_depth();
 void check_angle();
 void compare_depths();
 void reset_depth();
+void update_backlight();
 
 /* USER CODE END PFP */
 
@@ -129,6 +130,7 @@ uint8_t motor_on=0;
 int nmea_depth_ft=50;
 
 uint32_t last_button=0;
+
 uint8_t debounce=250;
 typedef enum {
   IDLE = 0,
@@ -137,6 +139,22 @@ typedef enum {
 } state;
 
 static volatile state  Magnet_st= IDLE;
+
+uint8_t Red_state=0;
+uint8_t Green_state=0;
+uint8_t Blue_state=0;
+
+uint8_t Needs_calibration=0;
+uint8_t System_ok=0;
+uint8_t alarm_suppressed=0;
+
+uint8_t BL_state=1;
+
+uint32_t Last_tick=0;
+
+uint32_t Blink_period=2000;
+
+uint8_t blink=0;
 
 
 /* Sensor initialization configuration. */
@@ -332,12 +350,11 @@ int main(void)
 	  calculate_depth(); //calculates depth
 	  parseDepthVal((int)(round(depth_ft)));
 
-	  if(nmea_on==1){
-		  compare_depths(); // this is only function that controls motor comment it out when necessary
-	  }
-	  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_11)){
-		  reset_depth();
-	  }
+
+	  compare_depths(); // this is only function that controls motor comment it out when necessary
+
+	  update_backlight();
+
 //	  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)){
 //		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
 //	  }else{
@@ -752,17 +769,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Calibrate_button_Pin Button3_Pin */
-  GPIO_InitStruct.Pin = Calibrate_button_Pin|Button3_Pin;
+  /*Configure GPIO pins : Calibrate_button_Pin nmea_toggle_Pin Alarm_ack_Pin */
+  GPIO_InitStruct.Pin = Calibrate_button_Pin|nmea_toggle_Pin|Alarm_ack_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : Button2_Pin */
-  GPIO_InitStruct.Pin = Button2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(Button2_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : Hall2_Pin Hall1_Pin */
   GPIO_InitStruct.Pin = Hall2_Pin|Hall1_Pin;
@@ -1028,28 +1039,139 @@ void check_angle(){
 
 }
 void compare_depths(){
-	if((int)depth_ft<20){
-		return;
-	}
-	if(((int)depth_ft) > nmea_depth_ft){
-		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 1);
-		  motor_on=1;
-		  return;
+	if(nmea_on){
+		if((int)depth_ft<20){
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
+			motor_on=0;
 
-	}else if(motor_on && ((int)depth_ft) > nmea_depth_ft + 5){
-		return;
+
+			return;
+		}else if(((int)depth_ft) > nmea_depth_ft){
+			//this line enables motor
+			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 1);
+			  motor_on=1;
+
+			  if(BL_state==2||BL_state==4||BL_state==5){
+				  BL_state=3;
+			  }
+
+
+
+
+		}else if(motor_on && ((int)depth_ft) > nmea_depth_ft + 5){
+
+
+
+
+			return;
+		}else{
+			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
+			  motor_on=0;
+//			  if(){
+//
+//			  }
+//			  BL_state=2;
+			  if(BL_state==5){
+				  BL_state=2;
+			  }
+
+
+
+
+
+		}
 	}else{
-		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
-		  motor_on=0;
-		  return;
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
+		motor_on=0;
+		if(((int)depth_ft) > nmea_depth_ft){
+			  if(BL_state==2||BL_state==3){
+				  BL_state=4;
+			  }
+		}else{
+			if(BL_state==3||BL_state==4||BL_state==5){
+				BL_state=2;
+			}
+		}
 
 	}
+
 
 }
 void reset_depth(){
 	magnets_ccw=0;
 	magnets_cw=0;
+	return;
+}
 
+void update_backlight(){
+	if(BL_state==1 || BL_state==4){
+		 uint32_t now=HAL_GetTick();
+		 if((now-Last_tick)>Blink_period){
+			blink=!blink;
+
+			Last_tick=now;
+
+		}
+	}else{
+		blink=1;
+	}
+
+
+	switch(BL_state){
+	case 1:
+		//Flashing green needs zeroing
+		if(blink){
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2, 0);
+
+		}else{
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 1);
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2, 1);
+		}
+		break;
+	case 2:
+		//Green all good
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2, 0);
+		break;
+	case 3:
+		//Red- motor reeling up or motor has reeled up and not been acknowledged
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2, 1);
+		break;
+	case 4:
+		//Flashing redd too close to bottom and not acknowledged and reel safe is off
+		if(blink){
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2, 1);
+
+		}else{
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 1);
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2, 1);
+		}
+		break;
+	case 5:
+		//Blue is alarm acknolwged but still below depth threshold
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 1);
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2, 0);
+		break;
+	default:
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_2, 0);
+		break;
+
+
+	}
+
+	return;
 }
 
 
@@ -1080,25 +1202,25 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	  }
 	  if(GPIO_Pin == Calibrate_button_Pin){
 		  __HAL_TIM_SET_COUNTER(&htim1,0); //reset angle
-	  }
+		  reset_depth();
+		  if(BL_state==1){
+			  BL_state=2;
+		  }
 
-	  if(GPIO_Pin == Button3_Pin){
+	  }else if(GPIO_Pin == nmea_toggle_Pin){
 		  uint32_t now=HAL_GetTick();
 		  if((now-last_button)>debounce){
-			  if(nmea_on==0){
-				  nmea_on=1;
-				  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
-				  //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_1);
-
-			  }
-			  else{
-				  nmea_on=0;
-				  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
-			  }
+			  nmea_on=!nmea_on;
 			  last_button=now;
 
 		  }
 
+	  } else if(GPIO_Pin == Alarm_ack_Pin){
+		  if(BL_state==3 && !motor_on){
+			  BL_state=2;
+		  } else if (BL_state==4){
+			  BL_state=5;
+		  }
 	  }
 
 

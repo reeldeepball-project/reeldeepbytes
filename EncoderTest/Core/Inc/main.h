@@ -77,11 +77,12 @@ void Error_Handler(void);
 #define Calibrate_button_Pin GPIO_PIN_10
 #define Calibrate_button_GPIO_Port GPIOA
 #define Calibrate_button_EXTI_IRQn EXTI15_10_IRQn
-#define Button2_Pin GPIO_PIN_11
-#define Button2_GPIO_Port GPIOA
-#define Button3_Pin GPIO_PIN_12
-#define Button3_GPIO_Port GPIOA
-#define Button3_EXTI_IRQn EXTI15_10_IRQn
+#define nmea_toggle_Pin GPIO_PIN_11
+#define nmea_toggle_GPIO_Port GPIOA
+#define nmea_toggle_EXTI_IRQn EXTI15_10_IRQn
+#define Alarm_ack_Pin GPIO_PIN_12
+#define Alarm_ack_GPIO_Port GPIOA
+#define Alarm_ack_EXTI_IRQn EXTI15_10_IRQn
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
