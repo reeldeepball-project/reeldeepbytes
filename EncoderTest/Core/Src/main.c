@@ -140,13 +140,9 @@ typedef enum {
 
 static volatile state  Magnet_st= IDLE;
 
-uint8_t Red_state=0;
-uint8_t Green_state=0;
-uint8_t Blue_state=0;
 
-uint8_t Needs_calibration=0;
-uint8_t System_ok=0;
-uint8_t alarm_suppressed=0;
+
+
 
 uint8_t BL_state=1;
 
@@ -228,8 +224,7 @@ int main(void)
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-  //HAL_ADC_Start(&hadc1);
-  //HAL_ADC_Start_DMA(&hadc1, &hall_data, 1);
+
 
 
   HAL_UART_Receive_IT(&huart4, rx_buff, 1);
@@ -264,20 +259,6 @@ int main(void)
   while (1)
   {
 	  /* Infinite loop
-	  position= TIM1->CNT;
-
-	  if (!HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13)){
-		  __HAL_TIM_SET_COUNTER(&htim1,0);
-	  }
-
-
-	  angle = (position/2048.0)*360;
-	  //angle = (int)((position/2048.0)*360);
-
-	  if (angle>180){
-		angle = 360-angle;
-
-	  }
 
       //copied  direct read (no interrupt status check)
 	    if (rslt == BMI323_OK)
@@ -355,11 +336,6 @@ int main(void)
 
 	  update_backlight();
 
-//	  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)){
-//		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
-//	  }else{
-//		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
-//	  }
 
 
 
@@ -1067,10 +1043,7 @@ void compare_depths(){
 		}else{
 			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
 			  motor_on=0;
-//			  if(){
-//
-//			  }
-//			  BL_state=2;
+
 			  if(BL_state==5){
 				  BL_state=2;
 			  }
