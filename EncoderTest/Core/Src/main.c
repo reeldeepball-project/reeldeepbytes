@@ -329,7 +329,7 @@ int main(void)
 	  check_buffer();
 	  check_angle();
 	  calculate_depth(); //calculates depth
-	  parseDepthVal((int)(round(depth_ft)));
+	  parseDepthVal((int)(round(depth_ft)),nmea_on);
 
 
 	  compare_depths(); // this is only function that controls motor comment it out when necessary
@@ -1015,14 +1015,14 @@ void check_angle(){
 
 }
 void compare_depths(){
-	if(nmea_on){
-		if((int)depth_ft<20){
+	if(nmea_on && !(BL_state==1)){
+		if((int)depth_ft<10){
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
 			motor_on=0;
 
 
 			return;
-		}else if(((int)depth_ft) > nmea_depth_ft){
+		}else if(((int)depth_ft) >= nmea_depth_ft){
 			//this line enables motor
 			  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 1);
 			  motor_on=1;
@@ -1034,7 +1034,7 @@ void compare_depths(){
 
 
 
-		}else if(motor_on && ((int)depth_ft) > nmea_depth_ft + 5){
+		}else if(motor_on && (((int)depth_ft) > (nmea_depth_ft - 5))){
 
 
 
@@ -1056,7 +1056,7 @@ void compare_depths(){
 	}else{
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, 0);
 		motor_on=0;
-		if(((int)depth_ft) > nmea_depth_ft){
+		if(((int)depth_ft) >= nmea_depth_ft){
 			  if(BL_state==2||BL_state==3){
 				  BL_state=4;
 			  }

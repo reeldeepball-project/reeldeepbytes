@@ -36,7 +36,7 @@ void countTestRDBlcd(){
 
 //function that takes calculated depth value integer and parses it for display
 // needs to hide leadiing zeros
-void parseDepthVal(int depthValue){
+void parseDepthVal(int depthValue,int nmea_on){
 
 	int ones = depthValue % 10;
 	int tens = (depthValue/10) %10;
@@ -52,6 +52,12 @@ void parseDepthVal(int depthValue){
     ST7565_drawbitmapNew(75, 47, depthDigitArray[ones], 36, 58, 1); //right digit
    //HAL_Delay(100);
   	ST7565_drawstring_anywhere(0, 7, "DEPTH"); // x=pixel,y=page
+  	if(nmea_on){
+  		ST7565_drawstring_anywhere(45, 7, "REEL SAFE:ON ");
+  	}else{
+  		//ST7565_drawstring_anywhere(50, 7, "            ");
+  		ST7565_drawstring_anywhere(45, 7, "REEL SAFE:OFF");
+  	}
   	ST7565_drawstring_anywhere(115, 0, "ft");  //
     updateDisplay();
 
